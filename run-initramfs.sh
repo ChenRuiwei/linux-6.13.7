@@ -1,3 +1,8 @@
 #!/bin/sh
 
-qemu-system-arm -M virt -m 1G -cpu cortex-a15 -nographic -kernel arch/arm/boot/zImage -initrd initramfs.cpio
+qemu-system-x86_64 \
+    -kernel ./arch/x86/boot/bzImage \
+    -initrd ./initramfs.cpio \
+    -nographic \
+    -serial mon:stdio \
+    -append "console=ttyS0"
