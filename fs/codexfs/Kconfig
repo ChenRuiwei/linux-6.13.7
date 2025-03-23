@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config CODEXFS_FS
+	tristate "CODEXFS filesystem support"
+	depends on BLOCK
+	default y
+	help
+	  CODEXFS is a compressed read-only filesystem.
