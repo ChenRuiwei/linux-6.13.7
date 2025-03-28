@@ -6,4 +6,10 @@ mount -t devtmpfs devtmpfs /dev
 
 echo "Welcome to Minimal Initramfs!"
 
+# mkdir erofs_mnt
+# mount -t erofs simple.erofs.img erofs_mnt
+#
+# mkdir codexfs_mnt
+# mount -t codexfs simple.codexfs.img codexfs_mnt
+
 exec /bin/sh
