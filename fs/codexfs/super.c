@@ -62,7 +62,7 @@ static int codexfs_read_superblock(struct super_block *sb)
 	}
 
 	sbi->islotbits = ilog2(sizeof(struct codexfs_inode));
-	sbi->root_nid = le16_to_cpu(dsb->root_nid);
+	sbi->root_nid = le64_to_cpu(dsb->root_nid);
 	sbi->inos = le64_to_cpu(dsb->inos);
 out:
 	codexfs_put_metabuf(&buf);

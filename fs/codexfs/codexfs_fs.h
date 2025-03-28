@@ -24,6 +24,8 @@ typedef u32 codexfs_size_t;
 /* CodexFs flags */
 #define CODEXFS_COMPRESSED (1 << 0)
 
+#define CODEXFS_NAME_LEN 255
+
 /*
  * On-disk super block structure (128 bytes)
  * Keep layout exactly matching Rust version
@@ -86,13 +88,5 @@ struct codexfs_extent {
 	__le32 off; /* File offset */
 	__le32 frag_off; /* Fragment offset */
 } __attribute__((packed));
-
-/* Helper functions (to be implemented in .c) */
-// static inline codexfs_blk_t addr_to_blk_id(__u64 addr);
-// static inline __u64 blk_id_to_addr(codexfs_blk_t blk_id);
-// static inline codexfs_blk_off_t addr_to_blk_off(__u64 addr);
-// static inline __u64 addr_to_nid(__u64 addr);
-// static inline __u64 nid_to_inode_off(codexfs_nid_t nid);
-// static inline __u64 nid_to_inode_meta_off(codexfs_nid_t nid);
 
 #endif /* __CODEXFS_H */

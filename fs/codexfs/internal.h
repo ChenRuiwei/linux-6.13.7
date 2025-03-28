@@ -16,6 +16,8 @@
 #include <linux/iomap.h>
 #include "codexfs_fs.h"
 
+#define DBG_BUGON BUG_ON
+
 __printf(2, 3) void _codexfs_printk(struct super_block *sb, const char *fmt,
 				    ...);
 #define codexfs_err(sb, fmt, ...) \
@@ -67,6 +69,49 @@ struct codexfs_buf {
 #define __CODEXFS_BUF_INITIALIZER ((struct codexfs_buf){ .page = NULL })
 
 extern const struct super_operations codexfs_sops;
+extern const struct inode_operations codexfs_generic_iops;
+extern const struct inode_operations codexfs_symlink_iops;
+extern const struct inode_operations codexfs_fast_symlink_iops;
+extern const struct inode_operations codexfs_dir_iops;
+extern const struct file_operations codexfs_dir_fops;
+
+#define codexfs_iblks(i)	(round_up((i)->i_size, i_blocksize(i)) >> (i)->i_blkbits)
+
+static inline codexfs_blk_t addr_to_blk_id(struct codexfs_sb_info *sb,
+					   __u64 addr)
+{
+	return addr >> sb->blkszbits;
+}
+static inline __u64 blk_id_to_addr(struct codexfs_sb_info *sb,
+				   codexfs_blk_t blk_id)
+{
+	return blk_id << sb->blkszbits;
+}
+static inline codexfs_blk_off_t addr_to_blk_off(struct codexfs_sb_info *sb,
+						__u64 addr)
+{
+	return addr & ((1 << sb->blkszbits) - 1);
+}
+static inline __u64 addr_to_nid(struct codexfs_sb_info *sb, __u64 addr)
+{
+	return addr >> sb->islotbits;
+}
+static inline __u64 nid_to_inode_off(struct codexfs_sb_info *sb,
+				     codexfs_nid_t nid)
+{
+	return nid << sb->islotbits;
+}
+static inline __u64 nid_to_inode_meta_off(struct codexfs_sb_info *sb,
+					  codexfs_nid_t nid)
+{
+	return (nid + 1) << sb->islotbits;
+}
+
+static inline codexfs_off_t codexfs_iloc(struct inode *inode)
+{
+	struct codexfs_sb_info *sbi = CODEXFS_I_SB(inode);
+	return nid_to_inode_off(sbi, CODEXFS_I(inode)->nid);
+}
 
 void *codexfs_read_metadata(struct super_block *sb, struct codexfs_buf *buf,
 			    codexfs_off_t *offset, int *lengthp);
@@ -78,5 +123,7 @@ void codexfs_init_metabuf(struct codexfs_buf *buf, struct super_block *sb);
 void *codexfs_read_metabuf(struct codexfs_buf *buf, struct super_block *sb,
 			   codexfs_off_t offset, enum codexfs_kmap_type type);
 struct inode *codexfs_iget(struct super_block *sb, codexfs_nid_t nid);
+int codexfs_namei(struct inode *dir, const struct qstr *name,
+		  codexfs_nid_t *nid, unsigned int *d_type);
 
 #endif
