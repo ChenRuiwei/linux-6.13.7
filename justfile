@@ -18,17 +18,28 @@ QEMU_ARGS := if ARCH == "x86_64" {
 default:
     @just --list
 
+make *TARGETS:
+    make ARCH={{ARCH}} O={{O}} {{TARGETS}}
+
 build-initramfs:
     cd {{O}}/initramfs/ && find . | cpio -ov --format=newc >../initramfs.cpio
 
 build-kernel:
-    make ARCH={{ARCH}} O={{O}} -j$(nproc)
+    just make -j$(nproc)
 
-make TARGET="":
-    make ARCH={{ARCH}} O={{O}} {{TARGET}}
+build: build-initramfs build-kernel
 
-run:
-    {{QEMU}} {{QEMU_ARGS}}
+run *QEMU_EXTRA_ARGS:
+    {{QEMU}} {{QEMU_ARGS}} {{QEMU_EXTRA_ARGS}}
 
-dbg:
-    {{QEMU}} {{QEMU_ARGS}} -s -S
+clean:
+    just make clean
+
+debug:
+    just run -s -S
+
+gdb:
+    gdb --ex "file {{O}}/vmlinux"
+
+clang:
+    ./scripts/clang-tools/gen_compile_commands.py -d {{O}}
