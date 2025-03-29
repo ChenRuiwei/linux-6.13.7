@@ -34,7 +34,7 @@ build-initramfs:
     cd {{O}}/initramfs/ && find . | cpio -o --format=newc >../initramfs.cpio
 
 build-kernel:
-    just ARCH={{ARCH}} make -j$(nproc)
+    @just ARCH={{ARCH}} make -j$(nproc)
 
 build: build-initramfs build-kernel
 
@@ -42,10 +42,10 @@ run *QEMU_EXTRA_ARGS:
     {{QEMU}} {{QEMU_ARGS}} {{QEMU_EXTRA_ARGS}}
 
 clean:
-    just ARCH={{ARCH}} make clean
+    @just ARCH={{ARCH}} make clean
 
 debug:
-    just ARCH={{ARCH}} run -s -S
+    @just ARCH={{ARCH}} run -s -S
 
 gdb:
     gdb --ex "file {{O}}/vmlinux" -ex "lx-symbols"
