@@ -108,7 +108,6 @@ static int codexfs_fc_fill_super(struct super_block *sb, struct fs_context *fc)
 		iput(inode);
 		return -EINVAL;
 	}
-
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root)
 		return -ENOMEM;
@@ -181,14 +180,9 @@ static void __exit codexfs_module_exit(void)
 	kmem_cache_destroy(codexfs_inode_cachep);
 }
 
-static int codexfs_statfs(struct dentry *dentry, struct kstatfs *buf)
-{
-	return 0;
-}
 
 const struct super_operations codexfs_sops = {
 	.put_super = codexfs_put_super,
-	.statfs = codexfs_statfs,
 };
 
 module_init(codexfs_module_init);

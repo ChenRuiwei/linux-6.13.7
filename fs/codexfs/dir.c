@@ -47,7 +47,6 @@ static int codexfs_readdir(struct file *f, struct dir_context *ctx)
 	unsigned long bsz = sb->s_blocksize;
 	unsigned int ofs = addr_to_blk_off(sbi, ctx->pos);
 	int err = 0;
-	bool initial = true;
 
 	buf.mapping = dir->i_mapping;
 	while (ctx->pos < dir->i_size) {
@@ -75,12 +74,6 @@ static int codexfs_readdir(struct file *f, struct dir_context *ctx)
 		}
 
 		maxsize = min_t(unsigned int, dir->i_size - dbstart, bsz);
-		/* search dirents at the arbitrary position */
-		if (initial) {
-			initial = false;
-			ofs = roundup(ofs, sizeof(struct codexfs_dirent));
-			ctx->pos = dbstart + ofs;
-		}
 
 		err = codexfs_fill_dentries(dir, ctx, de, (void *)de + ofs,
 					    nameoff, maxsize);

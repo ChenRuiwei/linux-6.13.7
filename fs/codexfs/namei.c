@@ -216,7 +216,7 @@ static struct dentry *codexfs_lookup(struct inode *dir, struct dentry *dentry,
 
 const struct inode_operations codexfs_dir_iops = {
 	.lookup = codexfs_lookup,
-	// .getattr = codexfs_getattr,
+	.getattr = codexfs_getattr,
 	// .listxattr = codexfs_listxattr,
 	// .get_inode_acl = codexfs_get_acl,
 	// .fiemap = codexfs_fiemap,

@@ -74,8 +74,10 @@ extern const struct inode_operations codexfs_symlink_iops;
 extern const struct inode_operations codexfs_fast_symlink_iops;
 extern const struct inode_operations codexfs_dir_iops;
 extern const struct file_operations codexfs_dir_fops;
+extern const struct address_space_operations codexfs_aops;
 
-#define codexfs_iblks(i)	(round_up((i)->i_size, i_blocksize(i)) >> (i)->i_blkbits)
+#define codexfs_iblks(i) \
+	(round_up((i)->i_size, i_blocksize(i)) >> (i)->i_blkbits)
 
 static inline codexfs_blk_t addr_to_blk_id(struct codexfs_sb_info *sb,
 					   __u64 addr)
@@ -113,6 +115,12 @@ static inline codexfs_off_t codexfs_iloc(struct inode *inode)
 	return nid_to_inode_off(sbi, CODEXFS_I(inode)->nid);
 }
 
+static inline codexfs_off_t codexfs_iloc_meta(struct inode *inode)
+{
+	struct codexfs_sb_info *sbi = CODEXFS_I_SB(inode);
+	return nid_to_inode_meta_off(sbi, CODEXFS_I(inode)->nid);
+}
+
 void *codexfs_read_metadata(struct super_block *sb, struct codexfs_buf *buf,
 			    codexfs_off_t *offset, int *lengthp);
 void codexfs_unmap_metabuf(struct codexfs_buf *buf);
@@ -125,5 +133,8 @@ void *codexfs_read_metabuf(struct codexfs_buf *buf, struct super_block *sb,
 struct inode *codexfs_iget(struct super_block *sb, codexfs_nid_t nid);
 int codexfs_namei(struct inode *dir, const struct qstr *name,
 		  codexfs_nid_t *nid, unsigned int *d_type);
+int codexfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+		    struct kstat *stat, u32 request_mask,
+		    unsigned int query_flags);
 
 #endif

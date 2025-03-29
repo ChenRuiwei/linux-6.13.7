@@ -125,6 +125,8 @@ static int codexfs_fill_inode(struct inode *inode)
 
 	mapping_set_large_folios(inode->i_mapping);
 
+	inode->i_mapping->a_ops = &codexfs_aops;
+
 	return err;
 }
 
@@ -176,7 +178,39 @@ struct inode *codexfs_iget(struct super_block *sb, codexfs_nid_t nid)
 	return inode;
 }
 
-const struct inode_operations codexfs_generic_iops = {};
+int codexfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+		    struct kstat *stat, u32 request_mask,
+		    unsigned int query_flags)
+{
+	struct inode *const inode = d_inode(path->dentry);
+	struct block_device *bdev = inode->i_sb->s_bdev;
+	bool compressed = false;
+
+	// if (compressed)
+	// 	stat->attributes |= STATX_ATTR_COMPRESSED;
+	stat->attributes |= STATX_ATTR_IMMUTABLE;
+	stat->attributes_mask |= (STATX_ATTR_COMPRESSED | STATX_ATTR_IMMUTABLE);
+
+	/*
+	 * Return the DIO alignment restrictions if requested.
+	 *
+	 * In CODEXFS, STATX_DIOALIGN is only supported in bdev-based mode
+	 * and uncompressed inodes, otherwise we report no DIO support.
+	 */
+	if ((request_mask & STATX_DIOALIGN) && S_ISREG(inode->i_mode)) {
+		stat->result_mask |= STATX_DIOALIGN;
+		if (bdev && !compressed) {
+			stat->dio_mem_align = bdev_dma_alignment(bdev) + 1;
+			stat->dio_offset_align = bdev_logical_block_size(bdev);
+		}
+	}
+	generic_fillattr(idmap, request_mask, inode, stat);
+	return 0;
+}
+
+const struct inode_operations codexfs_generic_iops = {
+	.getattr = codexfs_getattr,
+};
 
 const struct inode_operations codexfs_symlink_iops = {
 	.get_link = page_get_link,
