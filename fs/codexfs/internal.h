@@ -136,5 +136,7 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 int codexfs_getattr(struct mnt_idmap *idmap, const struct path *path,
 		    struct kstat *stat, u32 request_mask,
 		    unsigned int query_flags);
+void *codexfs_read_multipages(struct codexfs_buf *buf, codexfs_off_t offset,
+			      codexfs_size_t len, enum codexfs_kmap_type type);
 
 #endif

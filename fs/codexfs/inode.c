@@ -3,6 +3,17 @@
 #include "asm-generic/errno.h"
 #include "internal.h"
 
+static int codexfs_fill_symlink(struct inode *inode, void *kaddr,
+				unsigned int m_pofs)
+{
+	// FIXME: kaddr and m_pofs may be out of page
+	if (m_pofs >= PAGE_SIZE) {
+		return 0;
+	}
+	inode->i_link = kmemdup_nul(kaddr + m_pofs, inode->i_size, GFP_KERNEL);
+	return inode->i_link ? 0 : -ENOMEM;
+}
+
 static int codexfs_read_inode(struct inode *inode)
 {
 	struct super_block *sb = inode->i_sb;
@@ -51,7 +62,7 @@ static int codexfs_read_inode(struct inode *inode)
 	case S_IFLNK:
 		// vi->raw_blkaddr = le32_to_cpu(iu.blk_off);
 		if (S_ISLNK(inode->i_mode)) {
-			// err = codexfs_fill_symlink(inode, kaddr, ofs);
+			err = codexfs_fill_symlink(inode, kaddr, ofs);
 			err = 0;
 			if (err)
 				goto err_out;

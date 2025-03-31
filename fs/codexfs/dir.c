@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "asm-generic/errno.h"
+#include "asm/bug.h"
 #include "internal.h"
 
 static int codexfs_fill_dentries(struct inode *dir, struct dir_context *ctx,
@@ -42,45 +43,18 @@ static int codexfs_readdir(struct file *f, struct dir_context *ctx)
 {
 	struct inode *dir = file_inode(f);
 	struct codexfs_buf buf = __CODEXFS_BUF_INITIALIZER;
-	struct super_block *sb = dir->i_sb;
-	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
-	unsigned long bsz = sb->s_blocksize;
-	unsigned int ofs = addr_to_blk_off(sbi, ctx->pos);
 	int err = 0;
+	struct codexfs_dirent *de;
+	unsigned int nameoff;
 
+	// FIXME: release multipages
 	buf.mapping = dir->i_mapping;
-	while (ctx->pos < dir->i_size) {
-		codexfs_off_t dbstart = ctx->pos - ofs;
-		struct codexfs_dirent *de;
-		unsigned int nameoff, maxsize;
-
-		de = codexfs_bread(&buf, dbstart, CODEXFS_KMAP);
-		if (IS_ERR(de)) {
-			codexfs_err(
-				sb,
-				"fail to readdir of logical block %u of nid %llu",
-				addr_to_blk_id(sbi, dbstart),
-				CODEXFS_I(dir)->nid);
-			err = PTR_ERR(de);
-			break;
-		}
-
-		nameoff = le16_to_cpu(de->nameoff);
-		if (nameoff < sizeof(struct codexfs_dirent) || nameoff >= bsz) {
-			codexfs_err(sb, "invalid de[0].nameoff %u @ nid %llu",
-				    nameoff, CODEXFS_I(dir)->nid);
-			err = -EUCLEAN;
-			break;
-		}
-
-		maxsize = min_t(unsigned int, dir->i_size - dbstart, bsz);
-
-		err = codexfs_fill_dentries(dir, ctx, de, (void *)de + ofs,
-					    nameoff, maxsize);
+	de = codexfs_read_multipages(&buf, 0, dir->i_size, CODEXFS_KMAP);
+	nameoff = le16_to_cpu(de->nameoff);
+	if (ctx->pos < nameoff) {
+		err = codexfs_fill_dentries(dir, ctx, de, de, nameoff, dir->i_size);
 		if (err)
-			break;
-		ctx->pos = dbstart + maxsize;
-		ofs = 0;
+			BUG();
 	}
 	codexfs_put_metabuf(&buf);
 	return err < 0 ? err : 0;

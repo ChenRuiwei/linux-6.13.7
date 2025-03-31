@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "asm/bug.h"
 #include "codexfs_fs.h"
+#include "linux/gfp_types.h"
+#include "linux/math.h"
+#include "linux/mm_types.h"
+#include "linux/slab.h"
+#include "vdso/page.h"
 #include <linux/sched/mm.h>
 #include "internal.h"
 
@@ -57,6 +62,39 @@ void *codexfs_read_metabuf(struct codexfs_buf *buf, struct super_block *sb,
 {
 	codexfs_init_metabuf(buf, sb);
 	return codexfs_bread(buf, offset, type);
+}
+
+void *codexfs_read_multipages(struct codexfs_buf *buf, codexfs_off_t offset,
+			      codexfs_size_t len, enum codexfs_kmap_type type)
+{
+	pgoff_t start_index = offset >> PAGE_SHIFT;
+	unsigned int nr_pages = round_up(offset + len, PAGE_SIZE) >>
+				PAGE_SHIFT; // 要读取的页数
+	struct page **pages = (struct page **)kmalloc_array(
+		nr_pages, sizeof(struct page *), GFP_KERNEL);
+	struct page **page;
+
+	for (int i = 0; i < nr_pages; i++) {
+		page = pages + i;
+		*page = read_mapping_page(buf->mapping, start_index + i, NULL);
+		if (IS_ERR(page)) {
+			BUG();
+		}
+	}
+
+	// 将多个 page 的物理页映射到连续的虚拟地址
+	buf->base = vmap(pages, nr_pages, VM_MAP, PAGE_KERNEL);
+	if (!buf->base) {
+		BUG();
+	}
+	return buf->base;
+	// // 使用数据
+	// memcpy(buffer, vaddr, nr_pages * PAGE_SIZE);
+	//
+	// // 解除映射并释放资源
+	// vunmap(vaddr);
+	// for (int i = 0; i < nr_pages; i++)
+	// 	folio_put(folios[i]);
 }
 
 static int codexfs_iomap_begin(struct inode *inode, loff_t offset,
