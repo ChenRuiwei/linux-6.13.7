@@ -69,6 +69,35 @@ out:
 	return ret;
 }
 
+static void codexfs_inode_init_once(void *ptr)
+{
+	struct codexfs_inode_info *vi = ptr;
+
+	inode_init_once(&vi->vfs_inode);
+}
+
+static struct inode *codexfs_alloc_inode(struct super_block *sb)
+{
+	struct codexfs_inode_info *vi =
+		alloc_inode_sb(sb, codexfs_inode_cachep, GFP_KERNEL);
+
+	if (!vi)
+		return NULL;
+
+	/* zero out everything except vfs_inode */
+	memset(vi, 0, offsetof(struct codexfs_inode_info, vfs_inode));
+	return &vi->vfs_inode;
+}
+
+static void codexfs_free_inode(struct inode *inode)
+{
+	struct codexfs_inode_info *vi = CODEXFS_I(inode);
+
+	if (inode->i_op == &codexfs_fast_symlink_iops)
+		kfree(inode->i_link);
+	kmem_cache_free(codexfs_inode_cachep, vi);
+}
+
 static int codexfs_fc_fill_super(struct super_block *sb, struct fs_context *fc)
 {
 	struct inode *inode;
@@ -162,6 +191,12 @@ static int __init codexfs_module_init(void)
 {
 	int err;
 
+	codexfs_inode_cachep = kmem_cache_create(
+		"codexfs_inode", sizeof(struct codexfs_inode_info), 0,
+		SLAB_RECLAIM_ACCOUNT | SLAB_ACCOUNT, codexfs_inode_init_once);
+	if (!codexfs_inode_cachep)
+		return -ENOMEM;
+
 	err = register_filesystem(&codexfs_fs_type);
 	if (err)
 		goto fs_err;
@@ -180,9 +215,10 @@ static void __exit codexfs_module_exit(void)
 	kmem_cache_destroy(codexfs_inode_cachep);
 }
 
-
 const struct super_operations codexfs_sops = {
 	.put_super = codexfs_put_super,
+	.alloc_inode = codexfs_alloc_inode,
+	.free_inode = codexfs_free_inode,
 };
 
 module_init(codexfs_module_init);
