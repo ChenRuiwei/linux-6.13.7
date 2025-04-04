@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
+
 #include "codexfs_fs.h"
 #include "internal.h"
 #include "linux/err.h"
@@ -40,7 +41,7 @@ static inline int codexfs_dirnamecmp(const struct codexfs_qstr *qn,
 #define nameoff_from_disk(off, sz) (le16_to_cpu(off) & ((sz) - 1))
 
 static struct codexfs_dirent *
-find_target_dirent_linear(struct codexfs_qstr *name, u8 *data,
+find_target_dirent(struct codexfs_qstr *name, u8 *data,
 			  unsigned int size, const int ndirents)
 {
 	struct codexfs_dirent *const de = (struct codexfs_dirent *)data;
@@ -87,7 +88,7 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 	nameoff = le16_to_cpu(de->nameoff);
 	ndirents = nameoff / sizeof(struct codexfs_dirent);
 	if (ndirents)
-		de = find_target_dirent_linear(&qn, (u8 *)de, dir->i_size,
+		de = find_target_dirent(&qn, (u8 *)de, dir->i_size,
 					       ndirents);
 
 	if (!IS_ERR(de)) {

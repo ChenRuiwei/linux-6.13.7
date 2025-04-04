@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-#include "linux/panic.h"
+
 #include <linux/statfs.h>
 #include <linux/seq_file.h>
 #include <linux/crc32c.h>

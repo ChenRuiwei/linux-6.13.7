@@ -6,8 +6,10 @@
 #include "linux/gfp_types.h"
 #include "linux/highmem.h"
 #include "linux/iomap.h"
-#include "linux/math.h"
+#include "linux/minmax.h"
+#include "linux/mm.h"
 #include "linux/mm_types.h"
+#include "linux/pagemap.h"
 #include "linux/slab.h"
 #include "linux/types.h"
 #include "vdso/page.h"
@@ -83,7 +85,7 @@ void *codexfs_read_data(struct super_block *sb, codexfs_off_t addr, int len)
 	for (i = 0; i < len; i += cnt) {
 		cnt = min_t(int, sb->s_blocksize - addr_to_blk_off(sb, addr),
 			    len - i);
-		ptr = codexfs_bread(&buf, addr, CODEXFS_KMAP);
+		ptr = codexfs_bread(&buf, addr + i, CODEXFS_KMAP);
 		if (IS_ERR(ptr)) {
 			kfree(buffer);
 			codexfs_put_metabuf(&buf);
@@ -98,14 +100,13 @@ void *codexfs_read_data(struct super_block *sb, codexfs_off_t addr, int len)
 
 static int codexfs_read_folio(struct file *file, struct folio *folio)
 {
-	BUG();
 	struct inode *inode = folio->mapping->host;
 	struct super_block *sb = inode->i_sb;
 	loff_t pos = folio_pos(folio);
 	size_t len = folio_size(folio);
 	struct codexfs_inode_info *vi = CODEXFS_I(inode);
 	codexfs_off_t addr;
-	void *ptr;
+	void *data;
 
 	codexfs_info(sb, "pos %lld, len %zu", pos, len);
 
@@ -114,10 +115,8 @@ static int codexfs_read_folio(struct file *file, struct folio *folio)
 		addr = blk_id_to_addr(sb, vi->blk_id) + vi->blk_off;
 		break;
 	case S_IFDIR:
-		addr = nid_to_inode_meta_off(sb, vi->nid);
-		break;
 	case S_IFLNK:
-		BUG();
+		addr = nid_to_inode_meta_off(sb, vi->nid);
 		break;
 	case S_IFCHR:
 	case S_IFBLK:
@@ -127,10 +126,17 @@ static int codexfs_read_folio(struct file *file, struct folio *folio)
 		return -EUCLEAN;
 	}
 
-	ptr = codexfs_read_data(sb, addr, len);
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-	memcpy_to_folio(folio, pos, ptr + (addr % PAGE_SIZE), len);
+	len = min_t(size_t, len, inode->i_size - pos);
+	codexfs_info(sb, "addr %lld, len %zu", addr, len);
+	data = codexfs_read_data(sb, addr + pos, len);
+	if (IS_ERR(data))
+		return PTR_ERR(data);
+	codexfs_info(sb, "offset in folio %zu", offset_in_folio(folio, pos));
+	memcpy_to_folio(folio, offset_in_folio(folio, pos), data, len);
+	folio_mark_uptodate(folio);
+
+	folio_unlock(folio);
+	kfree(data);
 	return 0;
 }
 
