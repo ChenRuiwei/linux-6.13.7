@@ -40,9 +40,9 @@ static inline int codexfs_dirnamecmp(const struct codexfs_qstr *qn,
 
 #define nameoff_from_disk(off, sz) (le16_to_cpu(off) & ((sz) - 1))
 
-static struct codexfs_dirent *
-find_target_dirent(struct codexfs_qstr *name, u8 *data,
-			  unsigned int size, const int ndirents)
+static struct codexfs_dirent *find_target_dirent(struct codexfs_qstr *name,
+						 u8 *data, unsigned int size,
+						 const int ndirents)
 {
 	struct codexfs_dirent *const de = (struct codexfs_dirent *)data;
 	unsigned int matched = 0;
@@ -71,7 +71,7 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 	unsigned int nameoff;
 	struct super_block *sb = dir->i_sb;
 	struct codexfs_inode_info *vi = CODEXFS_I(dir);
-	void * data;
+	void *data;
 
 	if (!dir->i_size)
 		return -ENOENT;
@@ -80,16 +80,15 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 	qn.end = name->name + name->len;
 
 	data = codexfs_read_data(sb, nid_to_inode_meta_off(sb, vi->nid),
-			       dir->i_size);
-	if (IS_ERR(data)) 
+				 dir->i_size);
+	if (IS_ERR(data))
 		return PTR_ERR(data);
 
 	de = data;
 	nameoff = le16_to_cpu(de->nameoff);
 	ndirents = nameoff / sizeof(struct codexfs_dirent);
 	if (ndirents)
-		de = find_target_dirent(&qn, (u8 *)de, dir->i_size,
-					       ndirents);
+		de = find_target_dirent(&qn, (u8 *)de, dir->i_size, ndirents);
 
 	if (!IS_ERR(de)) {
 		*nid = le64_to_cpu(de->nid);

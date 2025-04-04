@@ -23,6 +23,7 @@ CROSS_COMPILE := if ARCH == "riscv" {
     } else {
         ""
     }
+CODEXFS_DIR := "./fs/codexfs"
 
 default:
     @just --list
@@ -54,4 +55,7 @@ clang:
     ./scripts/clang-tools/gen_compile_commands.py -d {{O}}
 
 tokei:
-    cd ./fs/codexfs/ && tokei
+    cd {{CODEXFS_DIR}} && tokei
+
+fmt:
+    clang-format -i {{CODEXFS_DIR}}/*.[ch]

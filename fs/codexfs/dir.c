@@ -52,7 +52,7 @@ static int codexfs_readdir(struct file *f, struct dir_context *ctx)
 	void *data;
 
 	data = codexfs_read_data(sb, nid_to_inode_meta_off(sb, vi->nid),
-			       dir->i_size);
+				 dir->i_size);
 	if (IS_ERR(data))
 		return PTR_ERR(data);
 
