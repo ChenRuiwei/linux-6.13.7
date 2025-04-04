@@ -49,6 +49,9 @@ struct codexfs_inode_info {
 	/* atomic flags (including bitlocks) */
 	unsigned long flags;
 
+	codexfs_blk_t blk_id;
+	codexfs_blk_off_t blk_off;
+
 	/* the corresponding vfs inode */
 	struct inode vfs_inode;
 };
@@ -79,50 +82,52 @@ extern const struct address_space_operations codexfs_aops;
 #define codexfs_iblks(i) \
 	(round_up((i)->i_size, i_blocksize(i)) >> (i)->i_blkbits)
 
-static inline codexfs_blk_t addr_to_blk_id(struct codexfs_sb_info *sb,
-					   __u64 addr)
+static inline codexfs_blk_t addr_to_blk_id(struct super_block *sb, __u64 addr)
 {
-	return addr >> sb->blkszbits;
+	return addr >> sb->s_blocksize_bits;
 }
-static inline __u64 blk_id_to_addr(struct codexfs_sb_info *sb,
-				   codexfs_blk_t blk_id)
+
+static inline __u64 blk_id_to_addr(struct super_block *sb, codexfs_blk_t blk_id)
 {
-	return blk_id << sb->blkszbits;
+	return blk_id << sb->s_blocksize_bits;
 }
-static inline codexfs_blk_off_t addr_to_blk_off(struct codexfs_sb_info *sb,
+
+static inline codexfs_blk_off_t addr_to_blk_off(struct super_block *sb,
 						__u64 addr)
 {
-	return addr & ((1 << sb->blkszbits) - 1);
+	return addr & ((sb->s_blocksize) - 1);
 }
-static inline __u64 addr_to_nid(struct codexfs_sb_info *sb, __u64 addr)
+
+static inline __u64 addr_to_nid(struct super_block *sb, __u64 addr)
 {
-	return addr >> sb->islotbits;
+	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
+	return addr >> sbi->islotbits;
 }
-static inline __u64 nid_to_inode_off(struct codexfs_sb_info *sb,
-				     codexfs_nid_t nid)
+
+static inline __u64 nid_to_inode_off(struct super_block *sb, codexfs_nid_t nid)
 {
-	return nid << sb->islotbits;
+	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
+	return nid << sbi->islotbits;
 }
-static inline __u64 nid_to_inode_meta_off(struct codexfs_sb_info *sb,
+
+static inline __u64 nid_to_inode_meta_off(struct super_block *sb,
 					  codexfs_nid_t nid)
 {
-	return (nid + 1) << sb->islotbits;
+	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
+	return (nid + 1) << sbi->islotbits;
 }
 
 static inline codexfs_off_t codexfs_iloc(struct inode *inode)
 {
-	struct codexfs_sb_info *sbi = CODEXFS_I_SB(inode);
-	return nid_to_inode_off(sbi, CODEXFS_I(inode)->nid);
+	return nid_to_inode_off(inode->i_sb, CODEXFS_I(inode)->nid);
 }
 
 static inline codexfs_off_t codexfs_iloc_meta(struct inode *inode)
 {
-	struct codexfs_sb_info *sbi = CODEXFS_I_SB(inode);
-	return nid_to_inode_meta_off(sbi, CODEXFS_I(inode)->nid);
+	return nid_to_inode_meta_off(inode->i_sb, CODEXFS_I(inode)->nid);
 }
 
-void *codexfs_read_metadata(struct super_block *sb, struct codexfs_buf *buf,
-			    codexfs_off_t *offset, int *lengthp);
+void *codexfs_read_data(struct super_block *sb, codexfs_off_t addr, int len);
 void codexfs_unmap_metabuf(struct codexfs_buf *buf);
 void codexfs_put_metabuf(struct codexfs_buf *buf);
 void *codexfs_bread(struct codexfs_buf *buf, codexfs_off_t offset,
@@ -136,7 +141,5 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 int codexfs_getattr(struct mnt_idmap *idmap, const struct path *path,
 		    struct kstat *stat, u32 request_mask,
 		    unsigned int query_flags);
-void *codexfs_read_multipages(struct codexfs_buf *buf, codexfs_off_t offset,
-			      codexfs_size_t len, enum codexfs_kmap_type type);
 
 #endif

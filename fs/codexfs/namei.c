@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 #include "codexfs_fs.h"
 #include "internal.h"
+#include "linux/err.h"
+#include "linux/slab.h"
 
 struct codexfs_qstr {
 	const unsigned char *name;
@@ -63,30 +65,37 @@ int codexfs_namei(struct inode *dir, const struct qstr *name,
 		  codexfs_nid_t *nid, unsigned int *d_type)
 {
 	int ndirents;
-	struct codexfs_buf buf = __CODEXFS_BUF_INITIALIZER;
 	struct codexfs_dirent *de;
 	struct codexfs_qstr qn;
 	unsigned int nameoff;
+	struct super_block *sb = dir->i_sb;
+	struct codexfs_inode_info *vi = CODEXFS_I(dir);
+	void * data;
 
 	if (!dir->i_size)
 		return -ENOENT;
 
 	qn.name = name->name;
 	qn.end = name->name + name->len;
-	buf.mapping = dir->i_mapping;
 
-	de = codexfs_read_multipages(&buf, 0, dir->i_size, CODEXFS_KMAP);
+	data = codexfs_read_data(sb, nid_to_inode_meta_off(sb, vi->nid),
+			       dir->i_size);
+	if (IS_ERR(data)) 
+		return PTR_ERR(data);
+
+	de = data;
 	nameoff = le16_to_cpu(de->nameoff);
 	ndirents = nameoff / sizeof(struct codexfs_dirent);
 	if (ndirents)
-		de = find_target_dirent_linear(&qn, (u8 *)de, i_blocksize(dir),
+		de = find_target_dirent_linear(&qn, (u8 *)de, dir->i_size,
 					       ndirents);
 
 	if (!IS_ERR(de)) {
 		*nid = le64_to_cpu(de->nid);
 		*d_type = de->file_type;
 	}
-	codexfs_put_metabuf(&buf);
+
+	kfree(data);
 	return PTR_ERR_OR_ZERO(de);
 }
 
@@ -116,7 +125,4 @@ static struct dentry *codexfs_lookup(struct inode *dir, struct dentry *dentry,
 const struct inode_operations codexfs_dir_iops = {
 	.lookup = codexfs_lookup,
 	.getattr = codexfs_getattr,
-	// .listxattr = codexfs_listxattr,
-	// .get_inode_acl = codexfs_get_acl,
-	// .fiemap = codexfs_fiemap,
 };

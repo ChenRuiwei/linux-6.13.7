@@ -2,6 +2,9 @@
 #include "asm-generic/errno.h"
 #include "asm/bug.h"
 #include "internal.h"
+#include "linux/err.h"
+#include "linux/fs.h"
+#include "linux/slab.h"
 
 static int codexfs_fill_dentries(struct inode *dir, struct dir_context *ctx,
 				 void *dentry_blk, struct codexfs_dirent *de,
@@ -42,21 +45,26 @@ static int codexfs_fill_dentries(struct inode *dir, struct dir_context *ctx,
 static int codexfs_readdir(struct file *f, struct dir_context *ctx)
 {
 	struct inode *dir = file_inode(f);
-	struct codexfs_buf buf = __CODEXFS_BUF_INITIALIZER;
+	struct super_block *sb = dir->i_sb;
+	struct codexfs_inode_info *vi = CODEXFS_I(dir);
 	int err = 0;
 	struct codexfs_dirent *de;
 	unsigned int nameoff;
+	void *data;
 
-	// FIXME: release multipages
-	buf.mapping = dir->i_mapping;
-	de = codexfs_read_multipages(&buf, 0, dir->i_size, CODEXFS_KMAP);
+	data = codexfs_read_data(sb, nid_to_inode_meta_off(sb, vi->nid),
+			       dir->i_size);
+	if (IS_ERR(data))
+		return PTR_ERR(data);
+
+	de = data;
 	nameoff = le16_to_cpu(de->nameoff);
 	if (ctx->pos < nameoff) {
-		err = codexfs_fill_dentries(dir, ctx, de, de, nameoff, dir->i_size);
-		if (err)
-			BUG();
+		err = codexfs_fill_dentries(dir, ctx, de, de, nameoff,
+					    dir->i_size);
 	}
-	codexfs_put_metabuf(&buf);
+
+	kfree(data);
 	return err < 0 ? err : 0;
 }
 

@@ -2,6 +2,7 @@
 
 #include "asm-generic/errno.h"
 #include "internal.h"
+#include "linux/byteorder/generic.h"
 
 static int codexfs_fill_symlink(struct inode *inode, void *kaddr,
 				unsigned int m_pofs)
@@ -17,7 +18,6 @@ static int codexfs_fill_symlink(struct inode *inode, void *kaddr,
 static int codexfs_read_inode(struct inode *inode)
 {
 	struct super_block *sb = inode->i_sb;
-	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
 	struct codexfs_inode_info *vi = CODEXFS_I(inode);
 	const codexfs_off_t inode_loc = codexfs_iloc(inode);
 	codexfs_blk_t blkaddr, nblks = 0;
@@ -28,10 +28,10 @@ static int codexfs_read_inode(struct inode *inode)
 	unsigned int ofs;
 	int err = 0;
 
-	blkaddr = addr_to_blk_id(sbi, inode_loc);
-	ofs = addr_to_blk_off(sbi, inode_loc);
+	blkaddr = addr_to_blk_id(sb, inode_loc);
+	ofs = addr_to_blk_off(sb, inode_loc);
 
-	kaddr = codexfs_read_metabuf(&buf, sb, blk_id_to_addr(sbi, blkaddr),
+	kaddr = codexfs_read_metabuf(&buf, sb, blk_id_to_addr(sb, blkaddr),
 				     CODEXFS_KMAP);
 	if (IS_ERR(kaddr)) {
 		codexfs_err(sb, "failed to get inode (nid: %llu) page, err %ld",
@@ -58,15 +58,15 @@ static int codexfs_read_inode(struct inode *inode)
 	}
 	switch (inode->i_mode & S_IFMT) {
 	case S_IFREG:
+		vi->blk_id = le32_to_cpu(di->blk_id);
+		vi->blk_off = le32_to_cpu(di->u.blk_off);
+		break;
 	case S_IFDIR:
+		break;
 	case S_IFLNK:
-		// vi->raw_blkaddr = le32_to_cpu(iu.blk_off);
-		if (S_ISLNK(inode->i_mode)) {
-			err = codexfs_fill_symlink(inode, kaddr, ofs);
-			err = 0;
-			if (err)
-				goto err_out;
-		}
+		err = codexfs_fill_symlink(inode, kaddr, ofs);
+		if (err)
+			goto err_out;
 		break;
 	case S_IFCHR:
 	case S_IFBLK:
