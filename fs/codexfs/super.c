@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "linux/slab.h"
 #include <linux/statfs.h>
 #include <linux/seq_file.h>
 #include <linux/crc32c.h>
@@ -33,6 +34,8 @@ void _codexfs_printk(struct super_block *sb, const char *fmt, ...)
 
 static void codexfs_fc_free(struct fs_context *fc)
 {
+	kfree(fc->s_fs_info);
+	return;
 }
 
 static int codexfs_read_superblock(struct super_block *sb)
@@ -64,6 +67,7 @@ static int codexfs_read_superblock(struct super_block *sb)
 	sbi->islotbits = ilog2(sizeof(struct codexfs_inode));
 	sbi->root_nid = le64_to_cpu(dsb->root_nid);
 	sbi->inos = le64_to_cpu(dsb->inos);
+	sbi->compressed = dsb->flags & CODEXFS_COMPRESSED;
 out:
 	codexfs_put_metabuf(&buf);
 	return ret;
@@ -211,7 +215,6 @@ fs_err:
 static void __exit codexfs_module_exit(void)
 {
 	unregister_filesystem(&codexfs_fs_type);
-
 	kmem_cache_destroy(codexfs_inode_cachep);
 }
 

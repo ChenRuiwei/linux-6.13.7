@@ -25,6 +25,8 @@ __printf(2, 3) void _codexfs_printk(struct super_block *sb, const char *fmt,
 #define codexfs_info(sb, fmt, ...) \
 	_codexfs_printk(sb, KERN_INFO fmt "\n", ##__VA_ARGS__)
 
+#define EFSCORRUPTED EUCLEAN
+
 struct codexfs_device_info {
 	char *path;
 	struct file *file;
@@ -38,6 +40,7 @@ struct codexfs_sb_info {
 	/* what we really care is nid, rather than ino.. */
 	codexfs_nid_t root_nid;
 	u64 inos;
+	bool compressed;
 };
 
 #define CODEXFS_SB(sb) ((struct codexfs_sb_info *)(sb)->s_fs_info)
@@ -51,6 +54,7 @@ struct codexfs_inode_info {
 
 	codexfs_blk_t blk_id;
 	codexfs_blk_off_t blk_off;
+	u16 blks;
 
 	/* the corresponding vfs inode */
 	struct inode vfs_inode;
@@ -69,6 +73,7 @@ struct codexfs_buf {
 	struct page *page;
 	void *base;
 };
+
 #define __CODEXFS_BUF_INITIALIZER ((struct codexfs_buf){ .page = NULL })
 
 extern const struct super_operations codexfs_sops;
@@ -78,6 +83,7 @@ extern const struct inode_operations codexfs_fast_symlink_iops;
 extern const struct inode_operations codexfs_dir_iops;
 extern const struct file_operations codexfs_dir_fops;
 extern const struct address_space_operations codexfs_aops;
+extern const struct address_space_operations z_codexfs_aops;
 
 #define codexfs_iblks(i) \
 	(round_up((i)->i_size, i_blocksize(i)) >> (i)->i_blkbits)

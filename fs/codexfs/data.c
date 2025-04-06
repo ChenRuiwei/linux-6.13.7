@@ -123,7 +123,7 @@ static int codexfs_read_folio(struct file *file, struct folio *folio)
 	case S_IFIFO:
 	case S_IFSOCK:
 	default:
-		return -EUCLEAN;
+		return -EFSCORRUPTED;
 	}
 
 	len = min_t(size_t, len, inode->i_size - pos);

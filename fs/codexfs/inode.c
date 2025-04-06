@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
-#include "asm-generic/errno.h"
 #include "internal.h"
 #include "linux/byteorder/generic.h"
 
@@ -18,6 +17,7 @@ static int codexfs_fill_symlink(struct inode *inode, void *kaddr,
 static int codexfs_read_inode(struct inode *inode)
 {
 	struct super_block *sb = inode->i_sb;
+	struct codexfs_sb_info *sbi = CODEXFS_SB(sb);
 	struct codexfs_inode_info *vi = CODEXFS_I(inode);
 	const codexfs_off_t inode_loc = codexfs_iloc(inode);
 	codexfs_blk_t blkaddr, nblks = 0;
@@ -53,13 +53,16 @@ static int codexfs_read_inode(struct inode *inode)
 
 	if (unlikely(inode->i_size < 0)) {
 		codexfs_err(sb, "negative i_size @ nid %llu", vi->nid);
-		err = -EUCLEAN;
+		err = -EFSCORRUPTED;
 		goto err_out;
 	}
 	switch (inode->i_mode & S_IFMT) {
 	case S_IFREG:
 		vi->blk_id = le32_to_cpu(di->blk_id);
-		vi->blk_off = le32_to_cpu(di->u.blk_off);
+		if (sbi->compressed)
+			vi->blks = le16_to_cpu(di->u.blks);
+		else
+			vi->blk_off = le32_to_cpu(di->u.blk_off);
 		break;
 	case S_IFDIR:
 		break;
@@ -75,7 +78,7 @@ static int codexfs_read_inode(struct inode *inode)
 	default:
 		codexfs_err(sb, "bogus i_mode (%o) @ nid %llu", inode->i_mode,
 			    vi->nid);
-		err = -EUCLEAN;
+		err = -EFSCORRUPTED;
 		goto err_out;
 	}
 
@@ -89,6 +92,7 @@ static int codexfs_read_inode(struct inode *inode)
 		inode->i_blocks = round_up(inode->i_size, sb->s_blocksize) >> 9;
 	else
 		inode->i_blocks = nblks << (sb->s_blocksize_bits - 9);
+
 err_out:
 	DBG_BUGON(err);
 	codexfs_put_metabuf(&buf);
@@ -97,8 +101,8 @@ err_out:
 
 static int codexfs_fill_inode(struct inode *inode)
 {
-	// struct codexfs_inode_info *vi = CODEXFS_I(inode);
 	int err;
+	struct codexfs_sb_info *sbi = CODEXFS_SB(inode->i_sb);
 
 	/* read inode base data from disk */
 	err = codexfs_read_inode(inode);
@@ -131,12 +135,15 @@ static int codexfs_fill_inode(struct inode *inode)
 		init_special_inode(inode, inode->i_mode, inode->i_rdev);
 		return 0;
 	default:
-		return -EUCLEAN;
+		return -EFSCORRUPTED;
 	}
 
 	mapping_set_large_folios(inode->i_mapping);
 
-	inode->i_mapping->a_ops = &codexfs_aops;
+	if (!sbi->compressed)
+		inode->i_mapping->a_ops = &codexfs_aops;
+	else
+		inode->i_mapping->a_ops = &z_codexfs_aops;
 
 	return err;
 }
