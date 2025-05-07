@@ -41,6 +41,8 @@ struct codexfs_sb_info {
 	codexfs_nid_t root_nid;
 	u64 inos;
 	bool compressed;
+
+	uint8_t *pages;
 };
 
 #define CODEXFS_SB(sb) ((struct codexfs_sb_info *)(sb)->s_fs_info)

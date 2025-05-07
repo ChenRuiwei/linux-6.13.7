@@ -71,6 +71,9 @@ static int codexfs_read_superblock(struct super_block *sb)
 	sbi->root_nid = le64_to_cpu(dsb->root_nid);
 	sbi->inos = le64_to_cpu(dsb->inos);
 	sbi->compressed = dsb->flags & CODEXFS_COMPRESSED;
+
+	struct page *page = alloc_pages(GFP_KERNEL, 4);
+	sbi->pages = page_address(page);
 out:
 	codexfs_put_metabuf(&buf);
 	return ret;

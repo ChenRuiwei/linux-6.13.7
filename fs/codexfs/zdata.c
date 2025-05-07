@@ -42,7 +42,7 @@ static int z_codexfs_fixup_insize(struct xz_buf *xz_buf, const char *padbuf,
 static int z_codexfs_decompress_block(uint8_t *data, int blksz, uint8_t *out,
 				      int outsz)
 {
-	const uint32_t DICT_SIZE = 1024 * 1024;
+	const uint32_t DICT_SIZE = 32 * 1024;
 	enum xz_ret xz_err;
 	int err;
 	struct xz_dec_microlzma *s =
@@ -88,6 +88,7 @@ static int z_codexfs_read_folio(struct file *file, struct folio *folio)
 	loff_t pos = folio_pos(folio);
 	size_t len = min_t(size_t, folio_size(folio), inode->i_size - pos);
 	struct codexfs_inode_info *vi = CODEXFS_I(inode);
+	struct codexfs_sb_info *sbi = CODEXFS_SB(inode->i_sb);
 	codexfs_off_t addr;
 	void *data;
 	void *edata;
@@ -111,15 +112,15 @@ static int z_codexfs_read_folio(struct file *file, struct folio *folio)
 		codexfs_err(sb, "i %d", i);
 		codexfs_info(sb, "pos %lld, len %zu", pos, len);
 
-		const uint32_t OUTSZ = 64 * 1024;
-		u8 *out = kmalloc(OUTSZ, GFP_KERNEL);
+		const uint32_t OUTSZ = 32 * 1024;
+		// u8 *out = kmalloc(OUTSZ, GFP_KERNEL);
 		while (len_covered < len) {
 			data = codexfs_read_metabuf(
 				&buf, sb, blk_id_to_addr(sb, vi->blk_id + i),
 				CODEXFS_KMAP);
 
-			err = z_codexfs_decompress_block(data, PAGE_SIZE, out,
-							 OUTSZ);
+			err = z_codexfs_decompress_block(data, PAGE_SIZE,
+							 sbi->pages, OUTSZ);
 			if (err)
 				return err;
 			size_t len_adv;
@@ -136,10 +137,11 @@ static int z_codexfs_read_folio(struct file *file, struct folio *folio)
 						len - len_covered);
 			}
 			codexfs_info(sb, "len_adv %zu", len_adv);
-			memcpy_to_folio(
-				folio,
-				offset_in_folio(folio, pos + len_covered),
-				out + e->frag_off + start_e_off, len_adv);
+			memcpy_to_folio(folio,
+					offset_in_folio(folio,
+							pos + len_covered),
+					sbi->pages + e->frag_off + start_e_off,
+					len_adv);
 			len_covered += len_adv;
 			i += 1;
 			e += 1;
@@ -147,7 +149,7 @@ static int z_codexfs_read_folio(struct file *file, struct folio *folio)
 
 		codexfs_put_metabuf(&buf);
 		kfree(edata);
-		kfree(out);
+		// kfree(out);
 		break;
 	case S_IFDIR:
 	case S_IFLNK:
