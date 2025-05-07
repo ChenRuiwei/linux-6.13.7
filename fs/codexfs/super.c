@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
+#include "linux/gfp.h"
+#include "linux/gfp_types.h"
+#include "linux/mm.h"
 #include "linux/slab.h"
 #include <linux/statfs.h>
 #include <linux/seq_file.h>
@@ -194,6 +197,8 @@ MODULE_ALIAS_FS("codexfs");
 static int __init codexfs_module_init(void)
 {
 	int err;
+
+	codexfs_check_ondisk_layout_definitions();
 
 	codexfs_inode_cachep = kmem_cache_create(
 		"codexfs_inode", sizeof(struct codexfs_inode_info), 0,

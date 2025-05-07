@@ -3,6 +3,7 @@
 #ifndef __CODEXFS_H
 #define __CODEXFS_H
 
+#include "linux/build_bug.h"
 #include <linux/types.h>
 
 /* Filesystem magic number */
@@ -37,12 +38,9 @@ struct codexfs_super_block {
 	__le64 root_nid; /* Root directory nid */
 	__le32 inos; /* Total valid inodes */
 	__u8 islot_bits; /* Inode slot bits */
-
 	__le32 blocks; /* Total blocks */
-	__le32 end_data_blk_id; /* Last data block ID */
-	__le32 end_data_blk_sz; /* Last data block size */
 	__u8 flags; /* Filesystem flags */
-	__u8 reserved[93]; /* Padding to 128 bytes */
+	__u8 reserved[101]; /* Padding to 128 bytes */
 } __attribute__((packed));
 
 /* Inode union for different data representations */
@@ -88,5 +86,14 @@ struct codexfs_extent {
 	__le32 off; /* File offset */
 	__le32 frag_off; /* Fragment offset */
 } __attribute__((packed));
+
+/* check the CODEXFS on-disk layout strictly at compile time */
+static inline void codexfs_check_ondisk_layout_definitions(void)
+{
+	BUILD_BUG_ON(sizeof(struct codexfs_super_block) != 128);
+	BUILD_BUG_ON(sizeof(struct codexfs_inode) != 32);
+	BUILD_BUG_ON(sizeof(struct codexfs_dirent) != 12);
+	BUILD_BUG_ON(sizeof(struct codexfs_extent) != 8);
+}
 
 #endif /* __CODEXFS_H */
